@@ -10,7 +10,7 @@ This Chrome extension automatically fills the captcha on the SRM Student Portal 
 
 # Load the extension in Chrome:
 <ol>
-  <li>Clone this repository.</li>
+  <li>Clone this repository or download zip and extract it.</li>
   <li>Open Chrome and go to chrome://extensions/.</li>
   <li>Enable "Developer mode" in the top right corner.</li>
   <li>Click "Load unpacked" and select this folder.</li>
