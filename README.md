@@ -25,7 +25,7 @@ The solved captcha text will be filled in the corresponding field.
 This extension is for educational purposes only. Using automated tools to bypass security measures might violate the terms of service of the SRM Student Portal. Use this extension at your own risk.
 
 # Dependencies
-Tesseract.js (included in the project)
+Tesseract.js <br>
 webpack-cli
 
 # Contributing
