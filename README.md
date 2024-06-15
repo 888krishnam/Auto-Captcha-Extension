@@ -2,9 +2,11 @@
 This Chrome extension automatically fills the captcha on the SRM Student Portal login page using Tesseract.js for Optical Character Recognition (OCR).
 
 # Features
-Fills captcha on SRM Student Portal login page
-Uses Tesseract.js for OCR
-Bundles JavaScript code with webpack-cli
+<ul>
+<li>Fills captcha on SRM Student Portal login page.</li>
+<li>Uses Tesseract.js for OCR.</li>
+<li>Bundles JavaScript code with webpack-cli.</li>
+</ul>
 
 # Load the extension in Chrome:
 Clone this repository
