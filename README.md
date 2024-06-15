@@ -11,17 +11,18 @@ Clone this repository
 Open Chrome and go to chrome://extensions/.
 Enable "Developer mode" in the top right corner.
 Click "Load unpacked" and select this folder.
-Usage
+
+# Usage
 Navigate to the SRM Student Portal login page.
 The extension will automatically detect the captcha image and attempt to solve it.
 The solved captcha text will be filled in the corresponding field.
 
-Disclaimer
+# Disclaimer
 This extension is for educational purposes only. Using automated tools to bypass security measures might violate the terms of service of the SRM Student Portal. Use this extension at your own risk.
 
-Dependencies
+# Dependencies
 Tesseract.js (included in the project)
 webpack-cli
 
-Contributing
+# Contributing
 Feel free to submit pull requests for improvements or bug fixes.
