@@ -3,16 +3,18 @@ This Chrome extension automatically fills the captcha on the SRM Student Portal 
 
 # Features
 <ul>
-<li>Fills captcha on SRM Student Portal login page.</li>
-<li>Uses Tesseract.js for OCR.</li>
-<li>Bundles JavaScript code with webpack-cli.</li>
+  <li>Fills captcha on SRM Student Portal login page.</li>
+  <li>Uses Tesseract.js for OCR.</li>
+  <li>Bundles JavaScript code with webpack-cli.</li>
 </ul>
 
 # Load the extension in Chrome:
-Clone this repository
-Open Chrome and go to chrome://extensions/.
-Enable "Developer mode" in the top right corner.
-Click "Load unpacked" and select this folder.
+<ol>
+  <li>Clone this repository.</li>
+  <li>Open Chrome and go to chrome://extensions/.</li>
+  <li>Enable "Developer mode" in the top right corner.</li>
+  <li>Click "Load unpacked" and select this folder.</li>
+</ol>
 
 # Usage
 Navigate to the SRM Student Portal login page.
