@@ -13,12 +13,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "host_permissions": [
-    "https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp"
-  ],
-  "permissions": [
-    "activeTab"
-  ],
   "content_scripts": [
     {
       "matches": ["https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp"],
