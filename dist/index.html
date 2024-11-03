@@ -1,6 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
-<body style="background-color: black;">
-    <h1 style="color:rgb(208, 226, 200)">For SRM STUDENT PORTAL.</h1>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Automater</title>
+  <link href="styles.css" rel="stylesheet">
+</head>
+
+<body>
+  <section>
+    <div class="container">
+      <div class="form-wrapper">
+        <div class="form-content">
+          <h1>SRM Student Portal</h1>
+          <form id="data" action="#">
+            <div>
+              <label for="email">Your email</label>
+              <input type="text" id="email" name="email" placeholder="Do NOT include @srmist.edu.in"
+                pattern="[a-z]{2}[0-9]{4}" maxlength="6" required>
+            </div>
+            <div class="password-container">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="••••••••" required>
+              <i class="fas fa-eye" id="togglePassword"></i>
+            </div>
+            <button type="submit">Submit</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+  <footer>
+    <p>This is a one-time process. Your details are stored locally in your browser using Chrome's storage API.</p>
+    <p>If you do not wish to share your details, close this page to normally use the extension with only captcha filling
+      functionality.</p>
+  </footer>
+  <script src="script.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"
+    integrity="sha512-YWznklnvIAUX#*sEjVMnKjLgyoBzwqlnAuUgjUwbChfCWZr/dB28IgoeA+kWxDq57Wr/TiQIHSPe/XHbKXfLmw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer">
 </body>
+
 </html>
