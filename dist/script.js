@@ -8,7 +8,7 @@ document.getElementById('data').addEventListener('submit', function (e) {
     const password = document.getElementById('password').value;
 
     chrome.storage.local.set({ email: email, password: password, c: 0 }, () => {
-        alert("Open or Refresh the Portal to see magic");
+        window.open('https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp', '_self');
     });
 });
 
