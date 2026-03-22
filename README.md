@@ -1,4 +1,9 @@
 # Auto-Captcha-Extension
+
+> **Important Update:** After the latest changes in the SRM Student Portal login page, Tesseract and other OCR approaches have started failing more often on captcha recognition.
+>
+> If you are interested in training a dedicated model for this captcha format and contributing to this project, ping me.
+
 This extension automatically fills the captcha on the SRM Student Portal login page using Tesseract.js for Optical Character Recognition (OCR). If you saved your email and password, the extension will fetch your email and password from chrome's local storage and automate the entire login process by filling in your email, password, and solved captcha, and submitting the form.
 
 # Features

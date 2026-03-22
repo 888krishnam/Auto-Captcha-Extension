@@ -1,13 +1,9 @@
-/*  Variable c is for checking the number of times the user has failed to login.
-    If the user has failed to login more than 5 times, the extension will stop trying to login
-    and prompt the user to enter the correct credentials. */
-
 document.getElementById('data').addEventListener('submit', function (e) {
     e.preventDefault();
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    chrome.storage.local.set({ email: email, password: password, c: 0 }, () => {
+    chrome.storage.local.set({ email: email, password: password }, () => {
         window.open('https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp', '_self');
     });
 });
