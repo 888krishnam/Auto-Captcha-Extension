@@ -90,48 +90,58 @@ if (currentUrl.startsWith(loginUrl)) {
             };
 
             const availability = await aiModel.availability(modelOptions);
+            
+            if (availability === "no" || availability === "unavailable") {
+                console.error("Prompt API is unavailable on this device.");
+                return;
+            }
+
             let session;
 
-            try {
-                // Attempt to create the session directly. 
-                // If it is already downloaded, this will succeed.
-                session = await aiModel.create(modelOptions);
-            } catch (createErr) {
-                // If it requires a user gesture to download, Chrome throws a NotAllowedError
-                if (createErr.name === 'NotAllowedError' || createErr.message.includes('user gesture')) {
-                    console.warn(`Model requires a user gesture to start downloading. Catching:`, createErr);
-                    
-                    // Create a temporary button to capture user gesture
+            const startDownload = () => {
+                return new Promise((resolve) => {
                     const btn = document.createElement("button");
                     btn.textContent = "Download AI Model for Auto-Captcha";
                     btn.style.cssText = "position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold;";
                     document.body.appendChild(btn);
 
-                    session = await new Promise((resolve) => {
-                        btn.addEventListener("click", async () => {
-                            btn.disabled = true;
-                            btn.textContent = "Loading AI Model... (this may take a while)";
-                            try {
-                                const newSession = await aiModel.create({
-                                    ...modelOptions,
-                                    monitor(m) {
-                                        m.addEventListener('downloadprogress', (e) => {
-                                            const progress = Math.round((e.loaded / e.total) * 100);
-                                            btn.textContent = `Downloading AI Model: ${progress}%`;
-                                        });
-                                    }
-                                });
-                                btn.remove();
-                                resolve(newSession);
-                            } catch (e) {
-                                console.error("Failed to create model session:", e);
-                                btn.textContent = "Error loading model.";
-                                btn.style.background = "red";
-                            }
-                        });
+                    btn.addEventListener("click", async () => {
+                        btn.disabled = true;
+                        btn.textContent = "Loading AI Model... (this may take a while)";
+                        try {
+                            const newSession = await aiModel.create({
+                                ...modelOptions,
+                                monitor(m) {
+                                    m.addEventListener('downloadprogress', (e) => {
+                                        const progress = Math.round((e.loaded / e.total) * 100);
+                                        btn.textContent = `Downloading AI Model: ${progress}%`;
+                                    });
+                                }
+                            });
+                            btn.remove();
+                            resolve(newSession);
+                        } catch (e) {
+                            console.error("Failed to create model session:", e);
+                            btn.textContent = "Error loading model.";
+                            btn.style.background = "red";
+                        }
                     });
-                } else {
-                    throw createErr;
+                });
+            };
+
+            if (availability === "downloading" || availability === "after-download") {
+                console.warn(`Model availability is '${availability}'. A user gesture is required to start the download.`);
+                session = await startDownload();
+            } else {
+                try {
+                    session = await aiModel.create(modelOptions);
+                } catch (createErr) {
+                    if (createErr.name === 'NotAllowedError' || (createErr.message && createErr.message.toLowerCase().includes('user gesture'))) {
+                        console.warn(`Model requires a user gesture to start downloading. Catching:`, createErr);
+                        session = await startDownload();
+                    } else {
+                        throw createErr;
+                    }
                 }
             }
 
