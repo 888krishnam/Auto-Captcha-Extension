@@ -1,5 +1,3 @@
-import { recognize } from "tesseract.js";
-
 const currentUrl = window.location.href;
 const loginUrl = "https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp";
 
@@ -15,43 +13,52 @@ if (currentUrl.startsWith(loginUrl)) {
             return;
         }
 
-        console.log("Selected captcha image:", {
-            src: imgElement.currentSrc || imgElement.src,
-            alt: imgElement.alt,
-            element: imgElement
-        });
-
         if (!imgElement.complete) {
             await new Promise((resolve) => {
                 imgElement.onload = resolve;
             });
         }
 
-        const canvas = document.createElement("canvas");
-        canvas.width = imgElement.clientWidth;
-        canvas.height = imgElement.clientHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(imgElement, 0, 0, imgElement.clientWidth, imgElement.clientHeight);
-        const image = canvas.toDataURL();
+        const usernameInput = document.getElementById("username") || document.getElementById("login") || document.querySelector('input[name="username"]');
+        const passwordInput = document.getElementById("password") || document.getElementById("passwd") || document.querySelector('input[name="password"]');
 
-        let email, password;
-        chrome.storage.local.get(['email', 'password'], result => {
-            email = result.email;
-            password = result.password;
-            if (email) {
-                const usernameInput =
-                    document.getElementById("username") ||
-                    document.getElementById("login") ||
-                    document.querySelector('input[name="username"]');
-                const passwordInput =
-                    document.getElementById("password") ||
-                    document.getElementById("passwd") ||
-                    document.querySelector('input[name="password"]');
+        if (usernameInput && passwordInput) {
+            // Load and Autofill credentials
+            chrome.storage.local.get(['email', 'password'], result => {
+                if (result.email) usernameInput.value = result.email;
+                if (result.password) passwordInput.value = result.password;
+            });
 
-                if (usernameInput) usernameInput.value = email;
-                if (passwordInput) passwordInput.value = password || "";
+            // Auto-save credentials when typed
+            const saveCredentials = () => {
+                const emailVal = usernameInput.value;
+                const passVal = passwordInput.value;
+                if (emailVal && passVal) {
+                    chrome.storage.local.set({ email: emailVal, password: passVal });
+                }
+            };
+
+            const form = usernameInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', saveCredentials);
             }
-        });
+            
+            // Listen specifically to the known login button
+            const loginBtn = document.getElementById("btnLogin");
+            if (loginBtn) {
+                loginBtn.addEventListener('click', saveCredentials);
+            }
+
+            document.addEventListener('click', (e) => {
+                const trg = e.target;
+                if (trg.tagName === 'BUTTON' || trg.type === 'submit' || (trg.id && trg.id.toLowerCase().includes('login'))) {
+                    saveCredentials();
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveCredentials();
+            });
+        }
 
         try {
             const input =
@@ -66,8 +73,81 @@ if (currentUrl.startsWith(loginUrl)) {
                 return;
             }
 
-            const out = await recognize(image, 'eng');
-            input.value = out.data.text;
+            const aiModel = window.ai?.languageModel || window.LanguageModel;
+            if (!aiModel) {
+                console.error("Prompt API is not available.");
+                return;
+            }
+
+            const modelOptions = {
+                expectedInputs: [
+                    { type: "text", languages: ["en"] },
+                    { type: "image" }
+                ],
+                expectedOutputs: [
+                    { type: "text", languages: ["en"] }
+                ]
+            };
+
+            const availability = await aiModel.availability(modelOptions);
+            let session;
+
+            try {
+                // Attempt to create the session directly. 
+                // If it is already downloaded, this will succeed.
+                session = await aiModel.create(modelOptions);
+            } catch (createErr) {
+                // If it requires a user gesture to download, Chrome throws a NotAllowedError
+                if (createErr.name === 'NotAllowedError' || createErr.message.includes('user gesture')) {
+                    console.warn(`Model requires a user gesture to start downloading. Catching:`, createErr);
+                    
+                    // Create a temporary button to capture user gesture
+                    const btn = document.createElement("button");
+                    btn.textContent = "Download AI Model for Auto-Captcha";
+                    btn.style.cssText = "position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold;";
+                    document.body.appendChild(btn);
+
+                    session = await new Promise((resolve) => {
+                        btn.addEventListener("click", async () => {
+                            btn.disabled = true;
+                            btn.textContent = "Loading AI Model... (this may take a while)";
+                            try {
+                                const newSession = await aiModel.create({
+                                    ...modelOptions,
+                                    monitor(m) {
+                                        m.addEventListener('downloadprogress', (e) => {
+                                            const progress = Math.round((e.loaded / e.total) * 100);
+                                            btn.textContent = `Downloading AI Model: ${progress}%`;
+                                        });
+                                    }
+                                });
+                                btn.remove();
+                                resolve(newSession);
+                            } catch (e) {
+                                console.error("Failed to create model session:", e);
+                                btn.textContent = "Error loading model.";
+                                btn.style.background = "red";
+                            }
+                        });
+                    });
+                } else {
+                    throw createErr;
+                }
+            }
+
+            if (!session) return;
+
+            const response = await session.prompt([
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", value: "Extract the exact text from this captcha image. Keep in mind of upper case letters, lower case letters, and numbers only. Output only the text from the image without any extra characters, explanation, or markdown." },
+                        { type: "image", value: imgElement }
+                    ]
+                }
+            ]);
+
+            input.value = response.trim();
         } catch (err) {
             console.error("Error during recognition:", err);
         }
