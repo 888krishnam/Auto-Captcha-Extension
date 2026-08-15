@@ -2,34 +2,43 @@ const currentUrl = window.location.href;
 const loginUrl = "https://sp.srmist.edu.in/srmiststudentportal/students/loginManager/youLogin.jsp";
 
 if (currentUrl.startsWith(loginUrl)) {
-    window.addEventListener("load", async () => {
-        const imgElement =
-            document.querySelector('div.col-sm-5 img[src*="SCaptchaServlet"]') ||
-            document.querySelector('img[src*="SCaptchaServlet"]') ||
-            document.querySelector("div.col-sm-5 img");
-
-        if (!imgElement) {
-            console.error("Captcha image not found on the page.");
-            return;
-        }
-
-        if (!imgElement.complete) {
-            await new Promise((resolve) => {
-                imgElement.onload = resolve;
+    const initCaptchaAutomation = async () => {
+        // Poll until the captcha image is fully loaded with its blob: URL
+        const waitForCaptchaImage = () => {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const check = () => {
+                    attempts++;
+                    const img = document.getElementById("secure_captcha") ||
+                                document.querySelector('img[data-src*="SCaptchaServlet"]') ||
+                                document.querySelector('img[src*="SCaptchaServlet"]');
+                    
+                    if (img && img.src && (img.src.includes('blob:') || img.src.includes('SCaptchaServlet'))) {
+                        if (img.complete && img.naturalWidth > 0) {
+                            resolve(img);
+                        } else {
+                            img.addEventListener('load', () => resolve(img), { once: true });
+                        }
+                    } else if (attempts < 40) {
+                        setTimeout(check, 250);
+                    } else {
+                        console.error("Auto-Captcha: Image timed out loading.");
+                        resolve(null);
+                    }
+                };
+                check();
             });
-        }
+        };
+
+        const imgElement = await waitForCaptchaImage();
+        if (!imgElement) return;
+
+        console.log("Auto-Captcha: Image found -", imgElement.src.substring(0, 60) + "...");
 
         const usernameInput = document.getElementById("username") || document.getElementById("login") || document.querySelector('input[name="username"]');
         const passwordInput = document.getElementById("password") || document.getElementById("passwd") || document.querySelector('input[name="password"]');
 
         if (usernameInput && passwordInput) {
-            // Load and Autofill credentials
-            chrome.storage.local.get(['email', 'password'], result => {
-                if (result.email) usernameInput.value = result.email;
-                if (result.password) passwordInput.value = result.password;
-            });
-
-            // Auto-save credentials when typed
             const saveCredentials = () => {
                 const emailVal = usernameInput.value;
                 const passVal = passwordInput.value;
@@ -39,19 +48,14 @@ if (currentUrl.startsWith(loginUrl)) {
             };
 
             const form = usernameInput.closest('form');
-            if (form) {
-                form.addEventListener('submit', saveCredentials);
-            }
+            if (form) form.addEventListener('submit', saveCredentials);
             
-            // Listen specifically to the known login button
             const loginBtn = document.getElementById("btnLogin");
-            if (loginBtn) {
-                loginBtn.addEventListener('click', saveCredentials);
-            }
+            if (loginBtn) loginBtn.addEventListener('click', saveCredentials);
 
             document.addEventListener('click', (e) => {
                 const trg = e.target;
-                if (trg.tagName === 'BUTTON' || trg.type === 'submit' || (trg.id && trg.id.toLowerCase().includes('login'))) {
+                if (trg && (trg.tagName === 'BUTTON' || trg.type === 'submit' || (trg.id && trg.id.toLowerCase().includes('login')))) {
                     saveCredentials();
                 }
             });
@@ -60,106 +64,158 @@ if (currentUrl.startsWith(loginUrl)) {
             });
         }
 
-        try {
-            const input =
-                document.getElementById("captcha") ||
-                document.getElementById("ccode") ||
-                document.querySelector('input[name="captcha"]') ||
-                document.querySelector('input[name="ccode"]') ||
-                document.querySelector('input[id*="captcha" i]');
+        const input =
+            document.getElementById("captcha") ||
+            document.getElementById("ccode") ||
+            document.querySelector('input[name="captcha"]') ||
+            document.querySelector('input[name="ccode"]') ||
+            document.querySelector('input[id*="captcha" i]');
 
-            if (!input) {
-                console.error("Captcha input field not found on the page.");
-                return;
+        if (!input) {
+            console.error("Auto-Captcha: Input field not found.");
+            return;
+        }
+
+        // Status badge
+        const showStatusBadge = (msg, type = "info") => {
+            let box = document.getElementById("auto-captcha-status-box");
+            if (!box) {
+                box = document.createElement("div");
+                box.id = "auto-captcha-status-box";
+                box.style.cssText = "position: fixed; top: 15px; right: 15px; z-index: 999999; padding: 10px 16px; background: #181824; color: #ffffff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); font-family: -apple-system, sans-serif; font-size: 13px; font-weight: 500; border: 1px solid #33334d;";
+                document.body.appendChild(box);
+            }
+            const bgColor = type === "error" ? "#dc3545" : type === "success" ? "#28a745" : "#007bff";
+            box.innerHTML = `<span style="padding: 2px 6px; background: ${bgColor}; border-radius: 4px; font-weight: bold; margin-right: 8px; font-size: 11px;">AUTO-CAPTCHA</span> ${msg}`;
+            if (type === "success" || type === "error") {
+                setTimeout(() => box?.remove(), 4000);
+            }
+        };
+
+        const tryPromptAPI = async (imgEl) => {
+            // Try to get the LanguageModel API
+            let aiModel = null;
+            if (typeof LanguageModel !== "undefined") {
+                aiModel = LanguageModel;
+            } else if (typeof self !== "undefined" && self.ai?.languageModel) {
+                aiModel = self.ai.languageModel;
+            } else if (typeof window !== "undefined" && window.ai?.languageModel) {
+                aiModel = window.ai.languageModel;
             }
 
-            const aiModel = window.ai?.languageModel || window.LanguageModel;
             if (!aiModel) {
-                console.error("Prompt API is not available.");
-                return;
+                console.error("Auto-Captcha: Prompt API (LanguageModel) not available in this browser.");
+                return null;
             }
 
-            const modelOptions = {
-                expectedInputs: [
-                    { type: "text", languages: ["en"] },
-                    { type: "image" }
-                ],
-                expectedOutputs: [
-                    { type: "text", languages: ["en"] }
-                ]
-            };
+            console.log("Auto-Captcha: LanguageModel API found.");
 
-            const availability = await aiModel.availability(modelOptions);
-            
-            if (availability === "no" || availability === "unavailable") {
-                console.error("Prompt API is unavailable on this device.");
-                return;
-            }
-
-            let session;
-
-            const startDownload = () => {
-                return new Promise((resolve) => {
-                    const btn = document.createElement("button");
-                    btn.textContent = "Download AI Model for Auto-Captcha";
-                    btn.style.cssText = "position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold;";
-                    document.body.appendChild(btn);
-
-                    btn.addEventListener("click", async () => {
-                        btn.disabled = true;
-                        btn.textContent = "Loading AI Model... (this may take a while)";
-                        try {
-                            const newSession = await aiModel.create({
-                                ...modelOptions,
-                                monitor(m) {
-                                    m.addEventListener('downloadprogress', (e) => {
-                                        const progress = Math.round((e.loaded / e.total) * 100);
-                                        btn.textContent = `Downloading AI Model: ${progress}%`;
-                                    });
-                                }
-                            });
-                            btn.remove();
-                            resolve(newSession);
-                        } catch (e) {
-                            console.error("Failed to create model session:", e);
-                            btn.textContent = "Error loading model.";
-                            btn.style.background = "red";
-                        }
+            try {
+                // Check availability
+                let availability;
+                if (typeof aiModel.availability === "function") {
+                    availability = await aiModel.availability({
+                        expectedInputs: [{ type: "image" }],
                     });
-                });
-            };
+                    console.log("Auto-Captcha: Model availability =", availability);
+                }
 
-            if (availability === "downloading" || availability === "after-download") {
-                console.warn(`Model availability is '${availability}'. A user gesture is required to start the download.`);
-                session = await startDownload();
-            } else {
+                if (availability === "no" || availability === "unavailable") {
+                    console.error("Auto-Captcha: Model is not available on this device.");
+                    return null;
+                }
+
+                // Create session with multimodal support
+                const session = await aiModel.create({
+                    systemPrompt: "You are a precise OCR tool. You will be given a captcha image. Output ONLY the exact alphanumeric characters visible in the captcha. No spaces, no explanations, no formatting. Just the raw characters.",
+                    expectedInputs: [
+                        { type: "text", languages: ["en"] },
+                        { type: "image" },
+                    ],
+                    expectedOutputs: [
+                        { type: "text", languages: ["en"] },
+                    ],
+                });
+
+                console.log("Auto-Captcha: Session created successfully.");
+
                 try {
-                    session = await aiModel.create(modelOptions);
-                } catch (createErr) {
-                    if (createErr.name === 'NotAllowedError' || (createErr.message && createErr.message.toLowerCase().includes('user gesture'))) {
-                        console.warn(`Model requires a user gesture to start downloading. Catching:`, createErr);
-                        session = await startDownload();
-                    } else {
-                        throw createErr;
+                    // Pass the HTMLImageElement directly — no canvas needed!
+                    // The Prompt API natively accepts HTMLImageElement, avoiding
+                    // tainted canvas issues with cross-origin blob: URLs.
+                    const response = await Promise.race([
+                        session.prompt([
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", value: "Read the captcha text in this image. Output ONLY the exact characters, nothing else." },
+                                    { type: "image", value: imgEl },
+                                ],
+                            },
+                        ]),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error("Prompt API timeout")), 30000)
+                        ),
+                    ]);
+
+                    console.log("Auto-Captcha: Raw AI response:", JSON.stringify(response));
+
+                    let cleaned = response.replace(/[^a-zA-Z0-9]/g, "").trim();
+
+                    // Reject hallucinated output
+                    if (cleaned.length < 4 || cleaned.length > 7) {
+                        console.warn("Auto-Captcha: Bad length:", cleaned.length, "->", cleaned);
+                        return null;
+                    }
+                    if (/(.)\1{3,}/.test(cleaned) || /^(..)\1+$/.test(cleaned)) {
+                        console.warn("Auto-Captcha: Repetitive hallucination detected:", cleaned);
+                        return null;
+                    }
+
+                    return cleaned;
+                } finally {
+                    if (session && typeof session.destroy === "function") {
+                        session.destroy();
                     }
                 }
+            } catch (e) {
+                console.error("Auto-Captcha: Prompt API error:", e.name, e.message);
+                return null;
             }
+        };
 
-            if (!session) return;
+        showStatusBadge("Solving captcha with AI...", "info");
 
-            const response = await session.prompt([
-                {
-                    role: "user",
-                    content: [
-                        { type: "text", value: "Extract the exact text from this captcha image. Keep in mind of upper case letters, lower case letters, and numbers only. Output only the text from the image without any extra characters, explanation, or markdown." },
-                        { type: "image", value: imgElement }
-                    ]
+        chrome.storage.local.get(['email', 'password'], async result => {
+            const email = result.email;
+            const password = result.password;
+
+            if (email && usernameInput) usernameInput.value = email;
+            if (password && passwordInput) passwordInput.value = password;
+
+            try {
+                // Pass the <img> element directly to the Prompt API
+                let text = await tryPromptAPI(imgElement);
+
+                if (text) {
+                    if (text.length > 6) text = text.substring(0, 6);
+                    input.value = text;
+                    showStatusBadge(`Captcha Filled: ${text}`, "success");
+                    console.log("Auto-Captcha: Filled successfully:", text);
+                } else {
+                    showStatusBadge("AI unable to read captcha. Please type manually.", "error");
+                    console.warn("Auto-Captcha: AI returned no usable text.");
                 }
-            ]);
+            } catch (err) {
+                console.error("Auto-Captcha: Execution error:", err);
+                showStatusBadge("Captcha recognition error.", "error");
+            }
+        });
+    };
 
-            input.value = response.trim();
-        } catch (err) {
-            console.error("Error during recognition:", err);
-        }
-    })
-};
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+        initCaptchaAutomation();
+    } else {
+        window.addEventListener("load", initCaptchaAutomation);
+    }
+}
